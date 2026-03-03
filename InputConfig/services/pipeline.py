@@ -1,8 +1,12 @@
 """
-Pipeline Orchestrator — Module 1
-=================================
-Connects Module 1 (input processing) → Module 2 (market analysis)
-and returns the unified structured response.
+Profile Pipeline — Module 1
+============================
+Collects, validates and normalizes the seller profile.
+No market research happens here — this phase is purely about
+understanding WHO the user is and WHAT constraints they have.
+
+The resulting ProcessedConfig is returned and can later be
+passed to Module 2 when market analysis is triggered.
 """
 
 from __future__ import annotations
@@ -11,54 +15,45 @@ import logging
 from typing import Any, Dict
 
 from InputConfig.services.input_processor import process_user_input
-from InputConfig.services.module2_service import run_market_analysis
 
 log = logging.getLogger(__name__)
 
 
 def execute_pipeline(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Full end-to-end pipeline:
-      1. Process + normalize user input  (Module 1)
-      2. Run market analysis wrapper     (Module 2)
-      3. Combine and return result
+    Phase 1 pipeline — profile collection only.
 
-    Args:
-        input_data: validated dict from InputSchema
+    Steps:
+      1. Normalize and enrich user input
+      2. Return structured profile config
+
+    No API calls. No scraping. No LLM.
 
     Returns:
         {
-          "status":          "success" | "partial",
-          "input_config":    {...},
-          "market_analysis": {...},
-          "message":         str | None
+          "status":  "configured",
+          "profile": {...},
+          "message": str
         }
     """
     log.info(
-        "Pipeline start — niche='%s' budget=%.0f risk='%s' country='%s'",
+        "Profile collection — niche='%s' budget=%.0f risk='%s' country='%s' exp='%s'",
         input_data.get("niche"), input_data.get("budget"),
         input_data.get("risk_level"), input_data.get("country"),
+        input_data.get("experience"),
     )
 
-    # ── Stage 1: Input processing ────────────────────────────────────────────
-    processed_config = process_user_input(input_data)
+    profile = process_user_input(input_data)
 
-    # ── Stage 2: Module 2 market analysis ────────────────────────────────────
-    market_output = run_market_analysis(processed_config)
-
-    # ── Stage 3: Determine status ─────────────────────────────────────────────
-    is_mock   = market_output.get("source") == "mock_fallback"
-    status    = "partial" if is_mock else "success"
-    message   = market_output.get("risk_explanation") if is_mock else None
-
-    # Strip internal 'source' key before returning
-    market_output.pop("source", None)
-
-    log.info("Pipeline complete — status='%s'", status)
+    log.info("Profile configured — effective_budget=%.0f platform='%s'",
+             profile["effective_budget"], profile["platform"])
 
     return {
-        "status":          status,
-        "input_config":    processed_config,
-        "market_analysis": market_output,
-        "message":         message,
+        "status":  "configured",
+        "profile": profile,
+        "message": (
+            f"Profile saved. Ready to analyze '{profile['niche']}' "
+            f"on {profile['platform']} with {profile['currency_symbol']}"
+            f"{profile['effective_budget']:,.0f} effective budget."
+        ),
     }

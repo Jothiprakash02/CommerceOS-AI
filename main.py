@@ -71,7 +71,7 @@ app.add_middleware(
 # ─────────────────────────────────────────────
 #  Routes
 # ─────────────────────────────────────────────
-app.include_router(input_router,   tags=["Module 1 — Input Config"])   # POST /analyze
+app.include_router(input_router,   tags=["Module 1 — Input Config"])   # POST /profile
 app.include_router(analyze_router, tags=["Module 2 — Intelligence"])   # POST /analyze-product
 
 # ─────────────────────────────────────────────
