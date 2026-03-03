@@ -34,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from database import init_db
 from routers.analyze import router as analyze_router
 from InputConfig.routers.analyze import router as input_router
+from pipeline.routers.analyze import router as pipeline_router
 
 # ─────────────────────────────────────────────
 #  Logging
@@ -52,9 +53,10 @@ app = FastAPI(
     description=(
         "End-to-end AI market research platform for e-commerce sellers. "
         "Module 1: Input configuration & pipeline orchestration. "
-        "Module 2: Real-time market signals, scoring, profit simulation & LLM strategy."
+        "Module 2: Real-time market signals, scoring, profit simulation & LLM strategy. "
+        "Module 3: Demand-Based Profit Optimization Engine."
     ),
-    version="2.0.0",
+    version="3.0.0",
     contact={"name": "CommerceOS AI — Hackathon Build"},
 )
 
@@ -71,27 +73,30 @@ app.add_middleware(
 # ─────────────────────────────────────────────
 #  Routes
 # ─────────────────────────────────────────────
+app.include_router(pipeline_router, tags=["Full Pipeline"])            # POST /analyze
 app.include_router(input_router,   tags=["Module 1 — Input Config"])   # POST /profile
 app.include_router(analyze_router, tags=["Module 2 — Intelligence"])   # POST /analyze-product
 
 # ─────────────────────────────────────────────
 #  Frontend
-#  /      → Module 1 UI  (InputConfig)
-#  /ui    → Module 2 UI  (AiMarketResearch)
+#  /      → Full Pipeline UI  (pipeline)
+#  /m1    → Module 1 UI      (InputConfig)
+#  /ui    → Module 2 UI      (AiMarketResearch)
 # ─────────────────────────────────────────────
-_M1_FRONTEND = os.path.join(_BASE, "InputConfig",       "frontend")
-_M2_FRONTEND = os.path.join(_BASE, "AiMarketResearch",  "frontend")
-
-if os.path.isdir(_M1_FRONTEND):
-    app.mount("/assets", StaticFiles(directory=_M1_FRONTEND), name="m1_assets")
+_M1_FRONTEND  = os.path.join(_BASE, "InputConfig",      "frontend")
+_M2_FRONTEND  = os.path.join(_BASE, "AiMarketResearch", "frontend")
+_PL_FRONTEND  = os.path.join(_BASE, "pipeline",         "frontend")
 
 if os.path.isdir(_M2_FRONTEND):
     app.mount("/ui", StaticFiles(directory=_M2_FRONTEND, html=True), name="m2_frontend")
 
+if os.path.isdir(_M1_FRONTEND):
+    app.mount("/m1", StaticFiles(directory=_M1_FRONTEND, html=True), name="m1_frontend")
+
 
 @app.get("/", include_in_schema=False)
-async def serve_m1_frontend():
-    index = os.path.join(_M1_FRONTEND, "index.html")
+async def serve_pipeline_frontend():
+    index = os.path.join(_PL_FRONTEND, "index.html")
     if os.path.exists(index):
         return FileResponse(index, media_type="text/html")
     return {"message": "CommerceOS AI API", "docs": "/docs"}
