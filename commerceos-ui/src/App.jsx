@@ -313,6 +313,7 @@ const TABS=[
   {id:'scenarios', label:'📈 Scenarios'},
   {id:'signals',   label:'📡 Signals'},
   {id:'strategy',  label:'♟ Strategy'},
+  {id:'content',   label:'✨ Content'},
   {id:'history',   label:'🕐 History'},
 ];
 
@@ -329,7 +330,7 @@ const Nav = ({tab, setTab, hasResults, apiOk}) => {
         <span style={{color:'var(--text)'}}>Mind</span>
       </div>
       {TABS.map(t=>{
-        const locked=!free.includes(t.id)&&!hasResults;
+        const locked=!free.includes(t.id)&&!hasResults&&t.id!=='settings';
         const active=tab===t.id;
         return (
           <button key={t.id} onMouseEnter={()=>setHov(t.id)} onMouseLeave={()=>setHov(null)}
@@ -342,8 +343,12 @@ const Nav = ({tab, setTab, hasResults, apiOk}) => {
               color:active?'var(--accent)':locked?'var(--border2)':hov===t.id?'var(--text)':'var(--muted)',
               transition:'all .2s',letterSpacing:'.02em',whiteSpace:'nowrap',
               textShadow:active?'0 0 14px var(--accent)':'none',
+              position:'relative',
             }}>
             {t.label}
+            {active && <div style={{position:'absolute',bottom:-1,left:'50%',transform:'translateX(-50%)',
+              width:'60%',height:2,background:'var(--accent)',borderRadius:'2px 2px 0 0',
+              boxShadow:'0 0 8px var(--accent)'}}/>}
           </button>
         );
       })}
@@ -1097,6 +1102,630 @@ const StrategyPage = ({data}) => {
   );
 };
 
+/* ─── SETTINGS PAGE ───────────────────────────────────────────────────────── */
+const SettingsPage = () => {
+  const [settings,setSettings]=useState(null);
+  const [loading,setLoading]=useState(true);
+  const [saving,setSaving]=useState(false);
+  const [message,setMessage]=useState('');
+  
+  useEffect(()=>{
+    fetch('http://localhost:8080/settings')
+      .then(r=>r.json())
+      .then(data=>{setSettings(data);setLoading(false);})
+      .catch(()=>{setSettings(null);setLoading(false);});
+  },[]);
+  
+  const handleSave = async (updates) => {
+    setSaving(true);
+    setMessage('');
+    try {
+      const resp = await fetch('http://localhost:8080/settings', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(updates)
+      });
+      const data = await resp.json();
+      setMessage(data.message || 'Settings updated successfully');
+      setTimeout(()=>setMessage(''), 3000);
+      // Refresh settings
+      const newSettings = await fetch('http://localhost:8080/settings').then(r=>r.json());
+      setSettings(newSettings);
+    } catch(e) {
+      setMessage('Failed to update settings');
+    }
+    setSaving(false);
+  };
+  
+  if(loading) return (
+    <div style={{maxWidth:900,margin:'80px auto',padding:'0 32px',textAlign:'center'}}>
+      <div style={{display:'flex',alignItems:'center',gap:12,justifyContent:'center',color:'var(--muted)',fontFamily:'var(--mono)',fontSize:13}}>
+        <div style={{width:16,height:16,border:'2px solid var(--border)',borderTopColor:'var(--accent)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/>
+        Loading settings...
+      </div>
+    </div>
+  );
+  
+  if(!settings) return (
+    <div style={{maxWidth:900,margin:'80px auto',padding:'0 32px'}}>
+      <GlowCard color="var(--danger)">
+        <div style={{color:'var(--danger)',fontFamily:'var(--mono)',fontSize:14}}>
+          Failed to load settings. Check if backend is running.
+        </div>
+      </GlowCard>
+    </div>
+  );
+  
+  return (
+    <div style={{maxWidth:900,margin:'0 auto',padding:'40px 32px',position:'relative',zIndex:1}}>
+      <div className="fade-up" style={{marginBottom:32}}>
+        <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--muted)',letterSpacing:'.15em',marginBottom:8}}>// SYSTEM CONFIGURATION</div>
+        <h2 style={{fontFamily:'var(--font)',fontSize:32,fontWeight:700,letterSpacing:'-.02em'}}>Settings</h2>
+      </div>
+      
+      {message && (
+        <GlowCard className="fade-up" color="var(--accent)" style={{marginBottom:20}}>
+          <div style={{color:'var(--accent)',fontFamily:'var(--mono)',fontSize:13}}>{message}</div>
+        </GlowCard>
+      )}
+      
+      {/* Ollama Configuration */}
+      <GlowCard className="fade-up-1" color="var(--accent2)" style={{marginBottom:20}}>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+          <span style={{fontSize:24}}>🤖</span>
+          <div>
+            <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent2)',letterSpacing:'.15em',textTransform:'uppercase'}}>LLM Engine</div>
+            <div style={{fontFamily:'var(--font)',fontSize:18,fontWeight:700}}>Ollama Configuration</div>
+          </div>
+        </div>
+        
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+          <div>
+            <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)',letterSpacing:'.08em',textTransform:'uppercase'}}>Model</div>
+            <div style={{padding:'10px 14px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontFamily:'var(--mono)',fontSize:13}}>
+              {settings.ollama_model}
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)',letterSpacing:'.08em',textTransform:'uppercase'}}>Status</div>
+            <div style={{padding:'10px 14px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,display:'flex',alignItems:'center',gap:8}}>
+              <div style={{width:8,height:8,borderRadius:'50%',background:settings.ollama_status==='online'?'var(--accent)':'var(--danger)',
+                boxShadow:settings.ollama_status==='online'?'0 0 8px var(--accent)':'none'}}/>
+              <span style={{fontFamily:'var(--mono)',fontSize:13,color:settings.ollama_status==='online'?'var(--accent)':'var(--danger)',textTransform:'uppercase'}}>
+                {settings.ollama_status}
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)',letterSpacing:'.08em',textTransform:'uppercase'}}>Base URL</div>
+          <div style={{padding:'10px 14px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontFamily:'var(--mono)',fontSize:12,color:'var(--muted)'}}>
+            {settings.ollama_base_url}
+          </div>
+        </div>
+        
+        {settings.ollama_status !== 'online' && (
+          <div style={{padding:12,background:'var(--danger)15',border:'1px solid var(--danger)40',borderRadius:8,fontSize:12,color:'var(--danger)',fontFamily:'var(--mono)'}}>
+            ⚠️ Ollama is offline. Start it with: <code style={{background:'var(--bg)',padding:'2px 6px',borderRadius:4}}>ollama serve</code>
+          </div>
+        )}
+      </GlowCard>
+      
+      {/* API Keys Status */}
+      <GlowCard className="fade-up-2" color="var(--accent)" style={{marginBottom:20}}>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+          <span style={{fontSize:24}}>🔑</span>
+          <div>
+            <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent)',letterSpacing:'.15em',textTransform:'uppercase'}}>API Integration</div>
+            <div style={{fontFamily:'var(--font)',fontSize:18,fontWeight:700}}>API Keys Status</div>
+          </div>
+        </div>
+        
+        <div style={{display:'grid',gap:12}}>
+          {[
+            {name:'SerpAPI',key:'serpapi_configured',desc:'Keyword research (Tier 2)',url:'https://serpapi.com'},
+            {name:'Reddit API',key:'reddit_configured',desc:'Trend discovery from discussions',url:'https://www.reddit.com/prefs/apps'},
+            {name:'Google Ads API',key:'google_ads_configured',desc:'Keyword research (Tier 1 - most accurate)',url:'https://ads.google.com'},
+          ].map(({name,key,desc,url})=>(
+            <div key={key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:12,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8}}>
+              <div style={{flex:1}}>
+                <div style={{fontFamily:'var(--font)',fontSize:14,fontWeight:600,marginBottom:4}}>{name}</div>
+                <div style={{fontSize:11,color:'var(--muted)',fontFamily:'var(--mono)'}}>{desc}</div>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{width:8,height:8,borderRadius:'50%',background:settings[key]?'var(--accent)':'var(--muted)',
+                    boxShadow:settings[key]?'0 0 8px var(--accent)':'none'}}/>
+                  <span style={{fontFamily:'var(--mono)',fontSize:11,color:settings[key]?'var(--accent)':'var(--muted)',textTransform:'uppercase'}}>
+                    {settings[key]?'Configured':'Not Set'}
+                  </span>
+                </div>
+                {!settings[key] && (
+                  <a href={url} target="_blank" rel="noopener noreferrer" 
+                    style={{fontSize:11,color:'var(--accent2)',textDecoration:'none',fontFamily:'var(--mono)',
+                      padding:'4px 8px',border:'1px solid var(--accent2)40',borderRadius:4,transition:'all .2s'}}
+                    onMouseEnter={e=>e.target.style.background='var(--accent2)20'}
+                    onMouseLeave={e=>e.target.style.background='transparent'}>
+                    Get Key →
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div style={{marginTop:16,padding:12,background:'var(--accent)10',border:'1px solid var(--accent)30',borderRadius:8,fontSize:12,color:'var(--muted)',fontFamily:'var(--mono)'}}>
+          💡 Tip: Add API keys to <code style={{background:'var(--bg)',padding:'2px 6px',borderRadius:4,color:'var(--accent)'}}>.env</code> file and restart backend
+        </div>
+      </GlowCard>
+      
+      {/* Database & System Info */}
+      <GlowCard className="fade-up-3" color="var(--purple)" style={{marginBottom:20}}>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+          <span style={{fontSize:24}}>💾</span>
+          <div>
+            <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--purple)',letterSpacing:'.15em',textTransform:'uppercase'}}>System Info</div>
+            <div style={{fontFamily:'var(--font)',fontSize:18,fontWeight:700}}>Database & Storage</div>
+          </div>
+        </div>
+        
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)',letterSpacing:'.08em',textTransform:'uppercase'}}>Database URL</div>
+          <div style={{padding:'10px 14px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontFamily:'var(--mono)',fontSize:11,color:'var(--muted)',wordBreak:'break-all'}}>
+            {settings.database_url}
+          </div>
+        </div>
+        
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <div>
+            <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)',letterSpacing:'.08em',textTransform:'uppercase'}}>Default Country</div>
+            <div style={{padding:'10px 14px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontFamily:'var(--mono)',fontSize:13}}>
+              {settings.default_country}
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)',letterSpacing:'.08em',textTransform:'uppercase'}}>Default Currency</div>
+            <div style={{padding:'10px 14px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,fontFamily:'var(--mono)',fontSize:13}}>
+              {settings.default_currency}
+            </div>
+          </div>
+        </div>
+      </GlowCard>
+      
+      {/* Help & Documentation */}
+      <GlowCard className="fade-up-4" color="var(--accent3)">
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
+          <span style={{fontSize:24}}>📚</span>
+          <div>
+            <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent3)',letterSpacing:'.15em',textTransform:'uppercase'}}>Resources</div>
+            <div style={{fontFamily:'var(--font)',fontSize:18,fontWeight:700}}>Help & Documentation</div>
+          </div>
+        </div>
+        
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:12}}>
+          {[
+            {label:'API Documentation',url:'http://localhost:8080/docs',icon:'📖'},
+            {label:'Quick Start Guide',url:'#',icon:'🚀'},
+            {label:'Testing Guide',url:'#',icon:'🧪'},
+            {label:'GitHub Repository',url:'#',icon:'💻'},
+          ].map(({label,url,icon})=>(
+            <a key={label} href={url} target="_blank" rel="noopener noreferrer"
+              style={{display:'flex',alignItems:'center',gap:10,padding:12,background:'var(--surface)',
+                border:'1px solid var(--border)',borderRadius:8,textDecoration:'none',color:'var(--text)',
+                transition:'all .2s',cursor:'pointer'}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--accent3)';e.currentTarget.style.transform='translateY(-2px)';}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.transform='translateY(0)';}}>
+              <span style={{fontSize:20}}>{icon}</span>
+              <span style={{fontFamily:'var(--font)',fontSize:13,fontWeight:600}}>{label}</span>
+            </a>
+          ))}
+        </div>
+      </GlowCard>
+    </div>
+  );
+};
+
+/* ─── CONTENT GENERATOR PAGE ──────────────────────────────────────────────── */
+const ContentPage = ({data}) => {
+  const [form,setForm]=useState({
+    product_name:'',product_description:'',product_category:'',target_audience:'',
+    key_features:'',keywords:'',
+    platforms:['instagram','twitter','facebook'],
+    tone:'professional',length:'medium',variations:3,
+    include_emojis:true,include_call_to_action:true
+  });
+  const [loading,setLoading]=useState(false);
+  const [result,setResult]=useState(null);
+  const [error,setError]=useState('');
+  const [copied,setCopied]=useState('');
+
+  useEffect(()=>{
+    if(data){
+      setForm(f=>({...f,
+        product_name:data.product_name||'',
+        product_description:data.product_description||'',
+        product_category:data.category||'',
+        target_audience:data.target_audience||'',
+        keywords:data.seo_keywords?.join(', ')||''
+      }));
+    }
+  },[data]);
+
+  const generate=async()=>{
+    setError('');setLoading(true);setResult(null);
+    try{
+      const body={
+        product_name:form.product_name,
+        product_description:form.product_description||null,
+        product_category:form.product_category||null,
+        target_audience:form.target_audience||null,
+        key_features:form.key_features?form.key_features.split(',').map(f=>f.trim()):[],
+        keywords:form.keywords?form.keywords.split(',').map(k=>k.trim()):[],
+        platforms:form.platforms,
+        tone:form.tone,
+        length:form.length,
+        variations:parseInt(form.variations),
+        include_emojis:form.include_emojis,
+        include_call_to_action:form.include_call_to_action,
+        focus_seo:true
+      };
+      const res=await fetch('http://localhost:8080/generate-content',{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+      });
+      if(!res.ok){const e=await res.json();throw new Error(e.detail||'Generation failed');}
+      setResult(await res.json());
+    }catch(e){setError(e.message);}
+    finally{setLoading(false);}
+  };
+
+  const copyText=(text,label)=>{
+    navigator.clipboard.writeText(text);
+    setCopied(label);
+    setTimeout(()=>setCopied(''),2000);
+  };
+
+  const platformLabels={
+    instagram:'Instagram',twitter:'Twitter/X',facebook:'Facebook',
+    linkedin:'LinkedIn',tiktok:'TikTok',pinterest:'Pinterest',
+    amazon:'Amazon',etsy:'Etsy',shopify:'Shopify'
+  };
+
+  const inp={background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,
+    color:'var(--text)',fontFamily:'var(--mono)',fontSize:13,padding:'11px 14px',width:'100%'};
+
+  return (
+    <div style={{maxWidth:1400,margin:'0 auto',padding:'60px 32px'}}>
+      <div className="f0" style={{marginBottom:36,textAlign:'center'}}>
+        <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent)',letterSpacing:'.2em',textTransform:'uppercase',marginBottom:12}}>
+          MODULE 5 — CONTENT GENERATOR
+        </div>
+        <h1 style={{fontFamily:'var(--font)',fontSize:52,fontWeight:900,letterSpacing:'-.03em',lineHeight:1.05,marginBottom:16}}>
+          SEO Content <span style={{color:'var(--accent)',textShadow:'0 0 24px var(--accent)'}}>Generator</span>
+        </h1>
+        <p style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--muted)',lineHeight:1.8,maxWidth:600,margin:'0 auto'}}>
+          Generate platform-optimized content, hashtags, and SEO copy using AI.<br/>
+          Perfect for social media, e-commerce, and marketing campaigns.
+        </p>
+      </div>
+
+      <GlowCard className="f1" glow color="var(--accent)" style={{maxWidth:900,margin:'0 auto 32px'}}>
+        <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent)',letterSpacing:'.15em',marginBottom:20}}>
+          // INPUT
+        </div>
+        <div style={{display:'grid',gap:14}}>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',display:'block',marginBottom:6,fontFamily:'var(--mono)'}}>
+              PRODUCT NAME *
+            </label>
+            <input style={inp} value={form.product_name} onChange={e=>setForm({...form,product_name:e.target.value})}
+              placeholder="e.g., Wireless Bluetooth Headphones"/>
+          </div>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',display:'block',marginBottom:6,fontFamily:'var(--mono)'}}>
+              DESCRIPTION (Optional)
+            </label>
+            <textarea style={{...inp,minHeight:80,resize:'vertical'}} value={form.product_description}
+              onChange={e=>setForm({...form,product_description:e.target.value})}
+              placeholder="Brief product description..."/>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+            <div>
+              <label style={{fontSize:11,color:'var(--muted)',display:'block',marginBottom:6,fontFamily:'var(--mono)'}}>
+                CATEGORY
+              </label>
+              <input style={inp} value={form.product_category}
+                onChange={e=>setForm({...form,product_category:e.target.value})}
+                placeholder="e.g., Electronics"/>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:'var(--muted)',display:'block',marginBottom:6,fontFamily:'var(--mono)'}}>
+                TARGET AUDIENCE
+              </label>
+              <input style={inp} value={form.target_audience}
+                onChange={e=>setForm({...form,target_audience:e.target.value})}
+                placeholder="e.g., Young professionals"/>
+            </div>
+          </div>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',display:'block',marginBottom:6,fontFamily:'var(--mono)'}}>
+              KEY FEATURES (comma-separated)
+            </label>
+            <input style={inp} value={form.key_features}
+              onChange={e=>setForm({...form,key_features:e.target.value})}
+              placeholder="e.g., Noise cancelling, 30hr battery, wireless"/>
+          </div>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',display:'block',marginBottom:6,fontFamily:'var(--mono)'}}>
+              SEO KEYWORDS (comma-separated)
+            </label>
+            <input style={inp} value={form.keywords}
+              onChange={e=>setForm({...form,keywords:e.target.value})}
+              placeholder="e.g., bluetooth headphones, wireless audio, noise cancelling"/>
+          </div>
+        </div>
+
+        <div style={{marginTop:24,paddingTop:24,borderTop:'1px solid var(--border)'}}>
+          <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent)',letterSpacing:'.15em',marginBottom:16}}>
+            // OPTIONS
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:14}}>
+            <div>
+              <label style={{fontSize:11,color:'var(--muted)',display:'block',marginBottom:6,fontFamily:'var(--mono)'}}>
+                TONE
+              </label>
+              <select style={inp} value={form.tone} onChange={e=>setForm({...form,tone:e.target.value})}>
+                <option value="professional">Professional</option>
+                <option value="casual">Casual</option>
+                <option value="enthusiastic">Enthusiastic</option>
+                <option value="luxury">Luxury</option>
+                <option value="friendly">Friendly</option>
+                <option value="authoritative">Authoritative</option>
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:'var(--muted)',display:'block',marginBottom:6,fontFamily:'var(--mono)'}}>
+                LENGTH
+              </label>
+              <select style={inp} value={form.length} onChange={e=>setForm({...form,length:e.target.value})}>
+                <option value="short">Short</option>
+                <option value="medium">Medium</option>
+                <option value="long">Long</option>
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:'var(--muted)',display:'block',marginBottom:6,fontFamily:'var(--mono)'}}>
+                VARIATIONS
+              </label>
+              <input type="number" min="1" max="5" style={inp} value={form.variations}
+                onChange={e=>setForm({...form,variations:e.target.value})}/>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:8,paddingTop:20}}>
+              <label style={{fontSize:11,color:'var(--text)',fontFamily:'var(--mono)',display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                <input type="checkbox" checked={form.include_emojis}
+                  onChange={e=>setForm({...form,include_emojis:e.target.checked})}/>
+                Emojis
+              </label>
+              <label style={{fontSize:11,color:'var(--text)',fontFamily:'var(--mono)',display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                <input type="checkbox" checked={form.include_call_to_action}
+                  onChange={e=>setForm({...form,include_call_to_action:e.target.checked})}/>
+                CTA
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div style={{marginTop:24,paddingTop:24,borderTop:'1px solid var(--border)'}}>
+          <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent)',letterSpacing:'.15em',marginBottom:12}}>
+            // PLATFORMS
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            {['instagram','twitter','facebook','linkedin','tiktok','pinterest','amazon','etsy','shopify'].map(p=>(
+              <label key={p} style={{
+                padding:'8px 16px',background:form.platforms.includes(p)?'var(--accent)20':'var(--surface)',
+                border:`1px solid ${form.platforms.includes(p)?'var(--accent)':'var(--border)'}`,
+                borderRadius:20,fontSize:12,fontFamily:'var(--mono)',cursor:'pointer',
+                transition:'all .2s',display:'flex',alignItems:'center',gap:8
+              }}>
+                <input type="checkbox" checked={form.platforms.includes(p)}
+                  onChange={e=>{
+                    if(e.target.checked) setForm({...form,platforms:[...form.platforms,p]});
+                    else setForm({...form,platforms:form.platforms.filter(x=>x!==p)});
+                  }}/>
+                {platformLabels[p]}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {error&&<div style={{marginTop:14,padding:'10px 14px',background:'var(--danger)10',
+          border:'1px solid var(--danger)30',borderRadius:8,fontFamily:'var(--mono)',fontSize:12,color:'var(--danger)'}}>
+          ⚠ {error}
+        </div>}
+
+        <button onClick={generate} disabled={loading||!form.product_name} style={{
+          marginTop:20,width:'100%',padding:'14px',
+          background:loading||!form.product_name?'transparent':'linear-gradient(135deg,var(--accent),var(--accent2))',
+          border:loading||!form.product_name?'1px solid var(--border)':'none',
+          borderRadius:10,cursor:loading||!form.product_name?'not-allowed':'pointer',
+          fontFamily:'var(--mono)',fontWeight:700,fontSize:14,
+          color:loading||!form.product_name?'var(--muted)':'var(--bg)',letterSpacing:'.08em',
+          ...(loading||!form.product_name?{}:{boxShadow:'0 0 20px var(--accent)30'}),
+        }}>{loading?'GENERATING CONTENT...':'GENERATE CONTENT →'}</button>
+      </GlowCard>
+
+      {loading&&(
+        <GlowCard className="f2" style={{textAlign:'center',padding:'48px 20px',maxWidth:480,margin:'0 auto'}}>
+          <div style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--muted)',marginBottom:20}}>
+            Generating SEO-optimized content...
+          </div>
+          <div style={{display:'inline-block',width:36,height:36,border:'3px solid var(--border)',
+            borderTopColor:'var(--accent)',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>
+        </GlowCard>
+      )}
+
+      {result&&!loading&&(
+        <>
+          <div className="f2" style={{marginBottom:20}}>
+            <GlowCard style={{padding:'20px 28px',background:'linear-gradient(135deg,var(--card),var(--accent)06)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:16}}>
+                <div>
+                  <SectionLabel color="var(--accent)">Content Generated</SectionLabel>
+                  <div style={{fontFamily:'var(--font)',fontWeight:700,fontSize:22,marginTop:4}}>
+                    {result.product_name}
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                  <Tag label={`${result.variations.length} Variations`} color="var(--accent)"/>
+                  <Tag label={result.tone} color="var(--accent2)"/>
+                  <Tag label={`${result.generation_time}s`} color="var(--purple)"/>
+                </div>
+              </div>
+            </GlowCard>
+          </div>
+
+          <div className="f3" style={{marginBottom:20}}>
+            <GlowCard color="var(--accent2)">
+              <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent2)',letterSpacing:'.15em',marginBottom:16}}>
+                // UNIVERSAL CONTENT
+              </div>
+              <div style={{marginBottom:20}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                  <span style={{fontSize:12,color:'var(--muted)',fontFamily:'var(--mono)'}}>Description</span>
+                  <button onClick={()=>copyText(result.universal_description,'desc')} style={{
+                    padding:'4px 12px',background:'var(--surface)',border:'1px solid var(--border)',
+                    borderRadius:6,fontSize:11,color:'var(--text)',cursor:'pointer',fontFamily:'var(--mono)'
+                  }}>{copied==='desc'?'✓ Copied':'Copy'}</button>
+                </div>
+                <div style={{padding:'12px',background:'var(--surface)',borderRadius:8,fontSize:13,lineHeight:1.8}}>
+                  {result.universal_description}
+                </div>
+              </div>
+              <div style={{marginBottom:20}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                  <span style={{fontSize:12,color:'var(--muted)',fontFamily:'var(--mono)'}}>
+                    Hashtags ({result.universal_hashtags.length})
+                  </span>
+                  <button onClick={()=>copyText(result.universal_hashtags.join(' '),'hashtags')} style={{
+                    padding:'4px 12px',background:'var(--surface)',border:'1px solid var(--border)',
+                    borderRadius:6,fontSize:11,color:'var(--text)',cursor:'pointer',fontFamily:'var(--mono)'
+                  }}>{copied==='hashtags'?'✓ Copied':'Copy'}</button>
+                </div>
+                <div style={{padding:'12px',background:'var(--surface)',borderRadius:8,display:'flex',flexWrap:'wrap',gap:6}}>
+                  {result.universal_hashtags.map((h,i)=>(
+                    <span key={i} style={{fontSize:12,color:'var(--accent2)',fontFamily:'var(--mono)'}}>{h}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <span style={{fontSize:12,color:'var(--muted)',fontFamily:'var(--mono)',display:'block',marginBottom:8}}>
+                  SEO Keywords ({result.seo_keywords.length})
+                </span>
+                <div style={{padding:'12px',background:'var(--surface)',borderRadius:8,display:'flex',flexWrap:'wrap',gap:6}}>
+                  {result.seo_keywords.map((k,i)=>(
+                    <span key={i} style={{
+                      padding:'4px 10px',background:'var(--accent2)15',border:'1px solid var(--accent2)30',
+                      borderRadius:12,fontSize:11,color:'var(--accent2)',fontFamily:'var(--mono)'
+                    }}>{k}</span>
+                  ))}
+                </div>
+              </div>
+            </GlowCard>
+          </div>
+
+          {result.variations.map((variation,vi)=>(
+            <div key={vi} className="f4" style={{marginBottom:20}}>
+              <GlowCard>
+                <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--accent)',letterSpacing:'.15em',marginBottom:16}}>
+                  // VARIATION #{variation.variation_number}
+                </div>
+                <div style={{display:'grid',gap:16}}>
+                  {variation.platforms.map((plat,pi)=>(
+                    <div key={pi} style={{padding:'16px',background:'var(--surface)',borderRadius:12,
+                      border:'1px solid var(--border)'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                        <span style={{fontFamily:'var(--font)',fontWeight:700,fontSize:16}}>
+                          {platformLabels[plat.platform]}
+                        </span>
+                        {plat.post&&<button onClick={()=>copyText(plat.post+(plat.hashtags?' '+plat.hashtags.join(' '):''),`${vi}-${pi}`)}
+                          style={{padding:'4px 12px',background:'var(--card)',border:'1px solid var(--border)',
+                            borderRadius:6,fontSize:11,color:'var(--text)',cursor:'pointer',fontFamily:'var(--mono)'}}>
+                          {copied===`${vi}-${pi}`?'✓ Copied':'Copy All'}
+                        </button>}
+                      </div>
+                      {plat.post&&(
+                        <div style={{marginBottom:12}}>
+                          <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)'}}>
+                            Post ({plat.character_count} chars)
+                          </div>
+                          <div style={{padding:'10px',background:'var(--card)',borderRadius:6,fontSize:13,
+                            lineHeight:1.6,whiteSpace:'pre-wrap'}}>{plat.post}</div>
+                        </div>
+                      )}
+                      {plat.hashtags&&plat.hashtags.length>0&&(
+                        <div style={{marginBottom:12}}>
+                          <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)'}}>
+                            Hashtags ({plat.hashtags.length})
+                          </div>
+                          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                            {plat.hashtags.map((h,hi)=>(
+                              <span key={hi} style={{fontSize:11,color:'var(--accent)',fontFamily:'var(--mono)'}}>{h}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {plat.title&&(
+                        <div style={{marginBottom:12}}>
+                          <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)'}}>Title</div>
+                          <div style={{padding:'10px',background:'var(--card)',borderRadius:6,fontSize:13,fontWeight:600}}>
+                            {plat.title}
+                          </div>
+                        </div>
+                      )}
+                      {plat.description&&(
+                        <div style={{marginBottom:12}}>
+                          <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)'}}>Description</div>
+                          <div style={{padding:'10px',background:'var(--card)',borderRadius:6,fontSize:13,lineHeight:1.6}}>
+                            {plat.description}
+                          </div>
+                        </div>
+                      )}
+                      {plat.bullet_points&&plat.bullet_points.length>0&&(
+                        <div style={{marginBottom:12}}>
+                          <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)'}}>
+                            Bullet Points
+                          </div>
+                          <div style={{padding:'10px',background:'var(--card)',borderRadius:6}}>
+                            {plat.bullet_points.map((b,bi)=>(
+                              <div key={bi} style={{fontSize:13,marginBottom:6,paddingLeft:12,position:'relative'}}>
+                                <span style={{position:'absolute',left:0,color:'var(--accent)'}}>•</span>
+                                {b}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {plat.meta_description&&(
+                        <div>
+                          <div style={{fontSize:11,color:'var(--muted)',marginBottom:6,fontFamily:'var(--mono)'}}>
+                            Meta Description
+                          </div>
+                          <div style={{padding:'10px',background:'var(--card)',borderRadius:6,fontSize:12,
+                            fontStyle:'italic',color:'var(--muted)'}}>{plat.meta_description}</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </GlowCard>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+};
+
 /* ─── HISTORY PAGE ────────────────────────────────────────────────────────── */
 const HistoryPage = () => {
   const [records,setRecords]=useState([]);
@@ -1163,6 +1792,397 @@ const HistoryPage = () => {
   );
 };
 
+/* ─── AI CHAT ASSISTANT WIDGET ────────────────────────────────────────────── */
+const ChatWidget = ({ currentPage, userData }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      content: '👋 Hi! I\'m your MarketMind AI Assistant. I can help you understand features, explain terminology, and guide you through the platform. What would you like to know?'
+    }
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState([
+    'What is MarketMind?',
+    'How do I analyze a product?',
+    'Explain demand score'
+  ]);
+  const messagesEndRef = useRef(null);
+  
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+  
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+  
+  const sendMessage = async (messageText) => {
+    if (!messageText.trim() || loading) return;
+    
+    // Add user message
+    const userMessage = { role: 'user', content: messageText };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setLoading(true);
+    
+    try {
+      const response = await fetch('http://localhost:8080/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: messageText,
+          conversation_history: messages.slice(-10), // Last 10 messages for context
+          current_page: currentPage,
+          user_context: userData
+        })
+      });
+      
+      if (!response.ok) throw new Error('Chat failed');
+      
+      const data = await response.json();
+      
+      // Add assistant response
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.message
+      }]);
+      
+      // Update suggestions
+      if (data.suggestions && data.suggestions.length > 0) {
+        setSuggestions(data.suggestions);
+      }
+      
+      // Handle actions (e.g., navigate to page)
+      if (data.action === 'navigate_to' && data.action_data?.page) {
+        // This would trigger navigation in parent component
+        console.log('Navigate to:', data.action_data.page);
+      }
+      
+    } catch (error) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: '❌ Sorry, I\'m having trouble connecting right now. Please make sure the backend is running and try again.'
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleSuggestionClick = (suggestion) => {
+    sendMessage(suggestion);
+  };
+  
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input);
+    }
+  };
+  
+  return (
+    <>
+      {/* Chat Button */}
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            width: 60,
+            height: 60,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
+            border: 'none',
+            boxShadow: '0 4px 20px rgba(0,255,170,0.4), 0 0 40px rgba(0,255,170,0.2)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 28,
+            zIndex: 1000,
+            transition: 'all .3s',
+            animation: 'glowPulse 2s ease-in-out infinite'
+          }}
+          onMouseEnter={e => e.target.style.transform = 'scale(1.1)'}
+          onMouseLeave={e => e.target.style.transform = 'scale(1)'}>
+          💬
+        </button>
+      )}
+      
+      {/* Chat Window */}
+      {isOpen && (
+        <div style={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          width: 400,
+          height: 600,
+          background: 'var(--card)',
+          border: '1px solid var(--accent)60',
+          borderRadius: 16,
+          boxShadow: '0 8px 40px rgba(0,0,0,0.4), 0 0 60px rgba(0,255,170,0.15)',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 1000,
+          overflow: 'hidden',
+          animation: 'fadeUp .3s ease'
+        }}>
+          {/* Header */}
+          <div style={{
+            padding: '16px 20px',
+            background: 'linear-gradient(135deg, var(--accent)20, var(--accent2)20)',
+            borderBottom: '1px solid var(--accent)40',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 20
+              }}>
+                🤖
+              </div>
+              <div>
+                <div style={{ fontFamily: 'var(--font)', fontSize: 16, fontWeight: 700 }}>
+                  AI Assistant
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
+                  Powered by Gemini
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--muted)',
+                fontSize: 24,
+                cursor: 'pointer',
+                padding: 0,
+                width: 32,
+                height: 32,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 8,
+                transition: 'all .2s'
+              }}
+              onMouseEnter={e => {
+                e.target.style.background = 'var(--danger)20';
+                e.target.style.color = 'var(--danger)';
+              }}
+              onMouseLeave={e => {
+                e.target.style.background = 'none';
+                e.target.style.color = 'var(--muted)';
+              }}>
+              ×
+            </button>
+          </div>
+          
+          {/* Messages */}
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: 20,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16
+          }}>
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start'
+                }}>
+                <div style={{
+                  maxWidth: '80%',
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  background: msg.role === 'user'
+                    ? 'linear-gradient(135deg, var(--accent)30, var(--accent2)30)'
+                    : 'var(--surface)',
+                  border: `1px solid ${msg.role === 'user' ? 'var(--accent)40' : 'var(--border)'}`,
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  fontFamily: 'var(--font)',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word'
+                }}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            
+            {loading && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div style={{
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  display: 'flex',
+                  gap: 6
+                }}>
+                  <div style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: 'var(--accent)',
+                    animation: 'blink 1.4s infinite both',
+                    animationDelay: '0s'
+                  }} />
+                  <div style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: 'var(--accent)',
+                    animation: 'blink 1.4s infinite both',
+                    animationDelay: '0.2s'
+                  }} />
+                  <div style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: 'var(--accent)',
+                    animation: 'blink 1.4s infinite both',
+                    animationDelay: '0.4s'
+                  }} />
+                </div>
+              </div>
+            )}
+            
+            <div ref={messagesEndRef} />
+          </div>
+          
+          {/* Suggestions */}
+          {suggestions.length > 0 && !loading && (
+            <div style={{
+              padding: '12px 20px',
+              borderTop: '1px solid var(--border)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 8
+            }}>
+              {suggestions.map((sug, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleSuggestionClick(sug)}
+                  style={{
+                    padding: '6px 12px',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 16,
+                    fontSize: 12,
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--mono)',
+                    transition: 'all .2s'
+                  }}
+                  onMouseEnter={e => {
+                    e.target.style.borderColor = 'var(--accent)';
+                    e.target.style.background = 'var(--accent)20';
+                  }}
+                  onMouseLeave={e => {
+                    e.target.style.borderColor = 'var(--border)';
+                    e.target.style.background = 'var(--surface)';
+                  }}>
+                  {sug}
+                </button>
+              ))}
+            </div>
+          )}
+          
+          {/* Input */}
+          <div style={{
+            padding: 16,
+            borderTop: '1px solid var(--border)',
+            background: 'var(--surface)'
+          }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <textarea
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask me anything..."
+                disabled={loading}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  color: 'var(--text)',
+                  fontFamily: 'var(--font)',
+                  fontSize: 14,
+                  resize: 'none',
+                  minHeight: 44,
+                  maxHeight: 120,
+                  outline: 'none',
+                  transition: 'border-color .2s'
+                }}
+                onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+                onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                rows={1}
+              />
+              <button
+                onClick={() => sendMessage(input)}
+                disabled={!input.trim() || loading}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 8,
+                  background: input.trim() && !loading
+                    ? 'linear-gradient(135deg, var(--accent), var(--accent2))'
+                    : 'var(--border)',
+                  border: 'none',
+                  color: input.trim() && !loading ? 'var(--bg)' : 'var(--muted)',
+                  fontSize: 20,
+                  cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all .2s',
+                  flexShrink: 0
+                }}
+                onMouseEnter={e => {
+                  if (input.trim() && !loading) {
+                    e.target.style.transform = 'scale(1.05)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  e.target.style.transform = 'scale(1)';
+                }}>
+                ↑
+              </button>
+            </div>
+            <div style={{
+              marginTop: 8,
+              fontSize: 10,
+              color: 'var(--muted)',
+              fontFamily: 'var(--mono)',
+              textAlign: 'center'
+            }}>
+              Press Enter to send • Shift+Enter for new line
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 /* ─── ROOT ────────────────────────────────────────────────────────────────── */
 export default function App() {
   const [tab,setTab]                         = useState('discover');
@@ -1191,8 +2211,10 @@ export default function App() {
         {tab==='scenarios' && <ScenariosPage data={result}/>}
         {tab==='signals'   && <SignalsPage   data={result}/>}
         {tab==='strategy'  && <StrategyPage  data={result}/>}
+        {tab==='content'   && <ContentPage   data={result}/>}
         {tab==='history'   && <HistoryPage/>}
       </main>
+      <ChatWidget currentPage={tab} userData={result} />
     </>
   );
 }

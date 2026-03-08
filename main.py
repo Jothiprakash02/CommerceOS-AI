@@ -36,6 +36,16 @@ from routers.analyze import router as analyze_router
 from InputConfig.routers.analyze import router as input_router
 from pipeline.routers.analyze import router as pipeline_router
 from TrendScout.routers.discover import router as trend_router
+from BusinessStrategy.routers.strategy import router as strategy_router
+from AiAssistant.routers.chat import router as chat_router
+from ContentGenerator.routers.content import router as content_router
+
+# 'global' is a reserved Python keyword — load via importlib
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location("global_settings", os.path.join(_BASE, "global", "routers", "settings.py"))
+_mod  = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+settings_router = _mod.router
 
 # ─────────────────────────────────────────────
 #  Logging
@@ -79,6 +89,10 @@ app.include_router(trend_router,    tags=["Module 0 — Trend Scouting"])  # POS
 app.include_router(pipeline_router, tags=["Full Pipeline"])              # POST /analyze
 app.include_router(input_router,    tags=["Module 1 — Input Config"])    # POST /profile
 app.include_router(analyze_router,  tags=["Module 2 — Intelligence"])    # POST /analyze-product
+app.include_router(strategy_router, tags=["Module 4 — Business Strategy"]) # POST /strategy
+app.include_router(chat_router,     tags=["AI Assistant"])               # POST /chat
+app.include_router(content_router,  tags=["Content Generator"])          # POST /generate-content
+app.include_router(settings_router, tags=["System"])                     # GET/PUT /settings
 
 # ─────────────────────────────────────────────
 #  Frontend

@@ -9,6 +9,7 @@ from sqlalchemy import (
     String,
     Float,
     DateTime,
+    Boolean,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -55,6 +56,9 @@ class ProductAnalysis(Base):
     # Risk & recommendation
     risk_level = Column(String, nullable=True)
     final_recommendation = Column(String, nullable=True)
+
+    # User interaction
+    starred = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

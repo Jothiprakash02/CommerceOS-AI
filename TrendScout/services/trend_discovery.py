@@ -451,9 +451,111 @@ def discover_trends(
         data_sources_used=data_sources
     )
     
+    # Fallback: If no opportunities found, provide sample data
+    if not all_opportunities:
+        log.warning("No opportunities found from any source, using fallback sample data")
+        result = _get_fallback_opportunities(region, category)
+    
     log.info(
         "Trend discovery complete: %d opportunities from %d sources",
-        len(all_opportunities), len(data_sources)
+        len(result.top_opportunities), len(result.data_sources_used)
     )
     
     return result
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Fallback Sample Data (when APIs fail)
+# ═════════════════════════════════════════════════════════════════════════════
+def _get_fallback_opportunities(region: str, category: Optional[str]) -> TrendScoutResult:
+    """
+    Provide sample trending opportunities when real data sources fail.
+    This ensures the UI always has something to display.
+    """
+    log.info("Generating fallback sample opportunities for region=%s", region)
+    
+    # Sample opportunities based on region
+    sample_products = {
+        "India": [
+            ("Portable Blender", "home_kitchen", 85, "High", 45000),
+            ("Smart Watch", "electronics", 92, "High", 120000),
+            ("Yoga Mat", "fitness", 78, "Medium", 35000),
+            ("LED Strip Lights", "home_kitchen", 88, "High", 55000),
+            ("Wireless Earbuds", "electronics", 95, "High", 150000),
+            ("Resistance Bands", "fitness", 72, "Medium", 28000),
+            ("Phone Stand", "electronics", 68, "Low", 22000),
+            ("Water Bottle", "fitness", 75, "Medium", 30000),
+            ("Desk Organizer", "home_kitchen", 70, "Low", 25000),
+            ("Laptop Sleeve", "electronics", 82, "Medium", 40000),
+        ],
+        "US": [
+            ("Air Fryer", "home_kitchen", 90, "High", 200000),
+            ("Smart Doorbell", "electronics", 88, "High", 180000),
+            ("Protein Powder", "fitness", 85, "Medium", 150000),
+            ("LED Face Mask", "beauty", 78, "Medium", 95000),
+            ("Portable Charger", "electronics", 92, "High", 220000),
+            ("Yoga Block Set", "fitness", 70, "Low", 45000),
+            ("Coffee Maker", "home_kitchen", 86, "Medium", 160000),
+            ("Wireless Mouse", "electronics", 82, "Medium", 120000),
+            ("Resistance Bands", "fitness", 75, "Medium", 85000),
+            ("Smart Plug", "electronics", 88, "High", 140000),
+        ],
+    }
+    
+    # Get products for region or use India as default
+    products = sample_products.get(region, sample_products["India"])
+    
+    # Filter by category if specified
+    if category:
+        products = [p for p in products if p[1] == category]
+    
+    # Create ProductOpportunity objects
+    opportunities = []
+    for i, (name, cat, strength, velocity, volume) in enumerate(products):
+        opportunities.append(ProductOpportunity(
+            product_name=name,
+            category=cat,
+            trend_strength=float(strength),
+            growth_velocity=velocity,
+            search_volume_estimate=volume,
+            source="sample_data",
+            confidence=0.7,
+            suggested_keywords=[name.lower(), f"{name.lower()} online", f"buy {name.lower()}"]
+        ))
+    
+    # Group by category
+    category_map = {}
+    for opp in opportunities:
+        if opp.category not in category_map:
+            category_map[opp.category] = []
+        category_map[opp.category].append(opp)
+    
+    emerging_categories = [
+        {
+            "category": cat.replace("_", " ").title(),
+            "trend_strength": sum(o.trend_strength for o in opps) / len(opps),
+            "growth_velocity": max(o.growth_velocity for o in opps),
+            "suggested_products": [o.product_name for o in opps[:3]]
+        }
+        for cat, opps in category_map.items()
+    ]
+    emerging_categories.sort(key=lambda x: x["trend_strength"], reverse=True)
+    
+    # Seasonal spikes
+    seasonal_spikes = [opp.product_name for opp in opportunities if opp.growth_velocity == "High"][:8]
+    
+    # Innovation signals
+    innovation_signals = [
+        opp.product_name for opp in opportunities
+        if "smart" in opp.product_name.lower() or "wireless" in opp.product_name.lower()
+        or "portable" in opp.product_name.lower() or "led" in opp.product_name.lower()
+    ][:8]
+    
+    return TrendScoutResult(
+        emerging_categories=emerging_categories,
+        seasonal_spikes=seasonal_spikes,
+        innovation_signals=innovation_signals,
+        top_opportunities=opportunities,
+        scan_timestamp=datetime.now().isoformat(),
+        data_sources_used=["sample_data"]
+    )

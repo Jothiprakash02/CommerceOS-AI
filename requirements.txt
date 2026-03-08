@@ -28,6 +28,11 @@ praw==7.7.1                 # Python Reddit API Wrapper
                             # Requires env vars: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET,
                             # REDDIT_USER_AGENT (optional)
 
+# ── Gemini AI (for intelligent chat assistant) ────────────────────────────────
+google-genai>=1.0.0         # Google Gemini API (new SDK)
+                            # Requires env var: GEMINI_API_KEY
+                            # Get free key from: https://makersuite.google.com/app/apikey
+
 # ── Exchange rates (live USD→local for supplier cost) ─────────────────────────
 # Uses https://open.er-api.com/v6/latest/USD (free, no key needed)
 

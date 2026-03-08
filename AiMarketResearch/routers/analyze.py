@@ -227,7 +227,126 @@ async def get_history(
             "roi_percent": r.roi_percent,
             "risk_level": r.risk_level,
             "final_recommendation": r.final_recommendation,
+            "starred": getattr(r, 'starred', False),
             "created_at": r.created_at.isoformat() if r.created_at else None,
         }
         for r in records
     ]
+
+
+# ─────────────────────────────────────────────
+#  DELETE /history/{id}  — delete analysis
+# ─────────────────────────────────────────────
+@router.delete(
+    "/history/{analysis_id}",
+    summary="Delete a product analysis",
+    description="Permanently delete an analysis from history"
+)
+async def delete_analysis(analysis_id: int, db: Session = Depends(get_db)):
+    """Delete a specific analysis by ID"""
+    try:
+        analysis = db.query(ProductAnalysis).filter(ProductAnalysis.id == analysis_id).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis not found")
+        
+        db.delete(analysis)
+        db.commit()
+        
+        log.info(f"Deleted analysis ID={analysis_id}")
+        return {"status": "success", "message": f"Analysis {analysis_id} deleted"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Failed to delete analysis {analysis_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────
+#  PUT /history/{id}/star  — star/unstar
+# ─────────────────────────────────────────────
+@router.put(
+    "/history/{analysis_id}/star",
+    summary="Star/unstar an analysis",
+    description="Toggle star status for tracking important analyses"
+)
+async def toggle_star(analysis_id: int, db: Session = Depends(get_db)):
+    """Toggle star status for an analysis"""
+    try:
+        analysis = db.query(ProductAnalysis).filter(ProductAnalysis.id == analysis_id).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis not found")
+        
+        # Toggle starred status (assuming we add this column to the model)
+        current_star = getattr(analysis, 'starred', False)
+        setattr(analysis, 'starred', not current_star)
+        db.commit()
+        
+        log.info(f"Toggled star for analysis ID={analysis_id} to {not current_star}")
+        return {
+            "status": "success",
+            "analysis_id": analysis_id,
+            "starred": not current_star
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Failed to toggle star for analysis {analysis_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────
+#  GET /export/{id}  — export analysis
+# ─────────────────────────────────────────────
+@router.get(
+    "/export/{analysis_id}",
+    summary="Export analysis as JSON/CSV",
+    description="Export a specific analysis in various formats"
+)
+async def export_analysis(
+    analysis_id: int,
+    format: str = "json",  # json, csv, or pdf (future)
+    db: Session = Depends(get_db)
+):
+    """Export an analysis in the specified format"""
+    try:
+        analysis = db.query(ProductAnalysis).filter(ProductAnalysis.id == analysis_id).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis not found")
+        
+        if format == "json":
+            return {
+                "id": analysis.id,
+                "product_name": analysis.product_name,
+                "country": analysis.country,
+                "platform": analysis.platform,
+                "demand_score": analysis.demand_score,
+                "competition_score": analysis.competition_score,
+                "viability_score": analysis.viability_score,
+                "risk_level": analysis.risk_level,
+                "profit_margin": analysis.profit_margin,
+                "estimated_monthly_profit": analysis.estimated_monthly_profit,
+                "created_at": analysis.created_at.isoformat() if analysis.created_at else None
+            }
+        elif format == "csv":
+            # Simple CSV format
+            csv_data = f"Product,Country,Platform,Demand,Competition,Viability,Risk,Margin,Profit\n"
+            csv_data += f"{analysis.product_name},{analysis.country},{analysis.platform},"
+            csv_data += f"{analysis.demand_score},{analysis.competition_score},{analysis.viability_score},"
+            csv_data += f"{analysis.risk_level},{analysis.profit_margin},{analysis.estimated_monthly_profit}\n"
+            
+            from fastapi.responses import Response
+            return Response(
+                content=csv_data,
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename=analysis_{analysis_id}.csv"}
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Failed to export analysis {analysis_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
