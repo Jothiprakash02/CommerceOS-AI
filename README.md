@@ -8,7 +8,7 @@
 
 ## Overview
 
-MarketMind AI is a full-stack commerce intelligence platform that discovers trending product opportunities, validates them with live market data, and optimizes pricing and profit margins — all in a single pipeline.
+MarketMind AI is a full-stack commerce intelligence platform that discovers trending product opportunities, validates them with live market data, optimizes pricing and profit margins, and generates ready-to-publish content — all in a single pipeline.
 
 | Module | Role |
 |--------|------|
@@ -16,6 +16,9 @@ MarketMind AI is a full-stack commerce intelligence platform that discovers tren
 | **M1 — InputConfig** | Validates seller profile: budget, risk level, experience, country |
 | **M2 — AiMarketResearch** | Fetches demand score, competition, keywords, supplier cost, LLM strategy |
 | **M3 — ProfitOptimizer** | 7-step MPI engine: selling price, margin, inventory, monthly profit |
+| **M4 — BusinessStrategy** | AI-generated launch strategy, positioning, and risk assessment (Ollama) |
+| **AiAssistant** | Gemini-powered chat assistant — context-aware answers for every page |
+| **ContentGenerator** | SEO content, hashtags, and platform posts for Instagram / Twitter / Facebook |
 
 ---
 
@@ -31,7 +34,7 @@ scripts\start-all.bat
 ./scripts/start-all.sh
 ```
 
-Wait 10–15 seconds, then open **http://localhost:5174**
+Wait 10–15 seconds, then open **http://localhost:5173**
 
 ```bash
 # Stop all services
@@ -63,9 +66,14 @@ npm run dev
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/discover-trends` | Discover emerging product opportunities |
-| POST | `/analyze` | Full pipeline (M1 + M2 + M3) |
-| POST | `/analyze-product` | Analyze a specific product |
+| POST | `/discover-trends` | Discover emerging product opportunities (M0) |
+| POST | `/analyze` | Full pipeline — M1 + M2 + M3 |
+| POST | `/profile` | Validate seller profile (M1) |
+| POST | `/analyze-product` | Analyze a specific product (M2) |
+| POST | `/strategy` | Generate AI business strategy (M4) |
+| POST | `/chat` | Chat with Gemini AI assistant |
+| POST | `/generate-content` | Generate SEO content & social posts |
+| GET/PUT | `/settings` | Read or update platform settings |
 | GET | `/history` | Past analysis records |
 | GET | `/health` | Health check |
 
@@ -83,12 +91,15 @@ cp .env.example .env
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
+| `GEMINI_API_KEY` | Optional | Gemini chat assistant — get free key at [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| `OLLAMA_BASE_URL` | Optional | Ollama LLM endpoint (default: `http://localhost:11434`) |
+| `OLLAMA_MODEL` | Optional | Ollama model to use (default: `llama3:8b`) |
 | `SERPAPI_KEY` | Optional | Accurate CPC / search volume (100 free/month) |
-| `REDDIT_CLIENT_ID` | Optional | Reddit trend data |
-| `REDDIT_CLIENT_SECRET` | Optional | Reddit trend data |
+| `REDDIT_CLIENT_ID` | Optional | Reddit trend signals |
+| `REDDIT_CLIENT_SECRET` | Optional | Reddit trend signals |
 | `DATABASE_URL` | Auto-set | SQLite path (default: `data/product_intelligence.db`) |
 
-The system works without any API keys using open scraping.
+The system works without any API keys using open scraping and local LLM inference.
 
 ---
 
@@ -98,17 +109,19 @@ The system works without any API keys using open scraping.
 MarketMind AI/
 ├── main.py                  # FastAPI entry point (port 8080)
 ├── requirements.txt         # Python dependencies
-├── .env.example             # Environment template
+├── .env / .env.example      # Environment config
 │
-├── TrendScout/              # M0 — Trend discovery
+├── TrendScout/              # M0 — Trend discovery engine
 ├── InputConfig/             # M1 — Seller profile & validation
-├── AiMarketResearch/        # M2 — Market intelligence
-├── ProfitOptimizer/         # M3 — Profit optimization
-├── BusinessStrategy/        # M4 — AI strategy (LLM layer)
+├── AiMarketResearch/        # M2 — Market intelligence & scoring
+├── ProfitOptimizer/         # M3 — Profit optimization engine
+├── BusinessStrategy/        # M4 — AI strategy generation (Ollama)
+├── AiAssistant/             # Gemini chat assistant
+├── ContentGenerator/        # SEO content & social media posts (Ollama)
 ├── pipeline/                # Full pipeline orchestration
-├── global/                  # Shared config, database, utilities
+├── global/                  # Shared config, database, settings API
 │
-├── commerceos-ui/           # React frontend (Vite, port 5174)
+├── commerceos-ui/           # React frontend (Vite, port 5173)
 ├── data/                    # SQLite database (git-ignored)
 ├── docs/                    # Extended documentation
 └── scripts/                 # Setup & start/stop automation
@@ -133,7 +146,7 @@ Full documentation lives in [`docs/`](docs/):
 
 | Service | Port |
 |---------|------|
-| Frontend (Vite) | 5174 |
+| Frontend (Vite) | 5173 |
 | Backend (FastAPI) | 8080 |
 | Ollama (LLM) | 11434 |
 
