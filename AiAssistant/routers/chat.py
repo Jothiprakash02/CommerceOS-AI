@@ -14,7 +14,7 @@ for _p in [_ROOT, os.path.join(_ROOT, "global")]:
 
 from fastapi import APIRouter, HTTPException
 from AiAssistant.schemas.chat_schema import ChatRequest, ChatResponse
-from AiAssistant.services.gemini_service import get_assistant
+from AiAssistant.services.ollama_service import get_assistant
 
 log = logging.getLogger(__name__)
 

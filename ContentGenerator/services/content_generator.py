@@ -78,7 +78,7 @@ class ContentGeneratorService:
     def __init__(self):
         """Initialize content generator"""
         self.ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.model = os.getenv("OLLAMA_MODEL", "llama3:8b")
+        self.model = os.getenv("OLLAMA_MODEL", "llama3:latest")
         self.timeout = int(os.getenv("OLLAMA_TIMEOUT", "120"))
         log.info(f"ContentGenerator initialized (model={self.model})")
     

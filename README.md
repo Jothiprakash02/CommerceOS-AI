@@ -8,7 +8,8 @@
 
 ## Overview
 
-MarketMind AI is a full-stack commerce intelligence platform that discovers trending product opportunities, validates them with live market data, optimizes pricing and profit margins, and generates ready-to-publish content — all in a single pipeline.
+MarketMind AI is a full-stack commerce intelligence platform that discovers trending product opportunities, taskkill /F /IM python.exe /T 2>nul
+taskkill /F /IM node.exe /T 2>nulvalidates them with live market data, optimizes pricing and profit margins, and generates ready-to-publish content — all in a single pipeline.
 
 | Module | Role |
 |--------|------|
